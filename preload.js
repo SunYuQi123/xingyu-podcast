@@ -1,0 +1,2 @@
+const {contextBridge,ipcRenderer}=require('electron');
+contextBridge.exposeInMainWorld('cosmos',{status:()=>ipcRenderer.invoke('status'),qrCreate:()=>ipcRenderer.invoke('qr-create'),qrPoll:()=>ipcRenderer.invoke('qr-poll'),logout:()=>ipcRenderer.invoke('logout'),subscriptions:()=>ipcRenderer.invoke('subscriptions'),episodes:(id,c)=>ipcRenderer.invoke('episodes',id,c),history:c=>ipcRenderer.invoke('history',c),progress:ids=>ipcRenderer.invoke('progress',ids),updateProgress:x=>ipcRenderer.invoke('progress-update',x),search:q=>ipcRenderer.invoke('search',q)});
