@@ -1,0 +1,10 @@
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const { syncProgress } = require('../sync-core');
+const entry = {eid:'aaaaaaaaaaaaaaaaaaaaaaaa',pid:'bbbbbbbbbbbbbbbbbbbbbbbb',progress:125.6,playedAt:'2026-11-03T00:00:00.000Z'};
+function mock(responses) { const calls=[]; return {calls, api:async (path,body)=>{ calls.push({path,body}); let next=responses.shift(); if(next instanceof Error)throw next; return next; }}; }
+test('writes progress, verifies server readback and writes history once requested',async()=>{const m=mock([{data:[]},{}, {data:[{eid:entry.eid,progress:125,playedAt:entry.playedAt}]},{}]);const r=await syncProgress(m.api,entry,true);assert.equal(r.status,'ok');assert.equal(r.historyRecorded,true);assert.deepEqual(m.calls.map(c=>c.path),['/v1/playback-progress/list','/v1/playback-progress/update','/v1/playback-progress/list','/v1/episode-played/create']);assert.equal(m.calls[1].body.data[0].progress,125);assert.deepEqual(m.calls[3].body,{eid:entry.eid})});
+test('never overwrites a newer remote position',async()=>{const m=mock([{data:[{eid:entry.eid,progress:180,playedAt:'2026-11-03T00:00:02.000Z'}]}]);const r=await syncProgress(m.api,entry,true);assert.equal(r.status,'conflict');assert.equal(m.calls.length,1)});
+test('does not claim success when readback differs',async()=>{const m=mock([{data:[]},{},{data:[{eid:entry.eid,progress:30,playedAt:entry.playedAt}]}]);await assert.rejects(syncProgress(m.api,entry,true),/校验/);assert.equal(m.calls.length,3)});
+test('does not claim history success when history update fails',async()=>{const m=mock([{data:[]},{},{data:[{eid:entry.eid,progress:125,playedAt:entry.playedAt}]},new Error('history failure')]);await assert.rejects(syncProgress(m.api,entry,true),/history failure/)});
+test('subsequent progress writes can avoid refreshing history',async()=>{const m=mock([{data:[]},{},{data:[{eid:entry.eid,progress:125,playedAt:entry.playedAt}]}]);const r=await syncProgress(m.api,entry,false);assert.equal(r.status,'ok');assert.equal(r.historyRecorded,false);assert.equal(m.calls.length,3)});

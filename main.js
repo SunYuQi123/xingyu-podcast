@@ -1,5 +1,6 @@
 const {app,BrowserWindow,ipcMain,safeStorage}=require('electron');
 const fs=require('fs'); const path=require('path'); const crypto=require('crypto');
+const {syncProgress}=require('./sync-core');
 let creds={device_id:crypto.randomUUID()}; let win;
 let qrId=null;
 const file=()=>path.join(app.getPath('userData'),'credentials.bin');
@@ -24,4 +25,4 @@ function pageData(j){if(Array.isArray(j.data))return {items:j.data,cursor:j.load
 ipcMain.handle('history',async(_,cursor)=>{const body=cursor?{loadMoreKey:cursor}:{};return pageData(await api('/v1/episode-played/list-history',body));});
 ipcMain.handle('progress',async(_,eids)=>{if(!Array.isArray(eids)||eids.length>100||eids.some(id=>typeof id!=='string'||id.length>100))throw Error('无效的单集列表');if(!eids.length)return [];return pageData(await api('/v1/playback-progress/list',{eids})).items.map(x=>({eid:x.eid,progress:x.progress,playedAt:x.playedAt}));});
 let progressQueue=Promise.resolve();
-ipcMain.handle('progress-update',(_,entry)=>{const work=async()=>{const {eid,pid,progress,playedAt}=entry||{};if(!/^[a-f0-9]{24}$/i.test(eid||'')||!/^[a-f0-9]{24}$/i.test(pid||'')||!Number.isFinite(progress)||progress<0||progress>864000||!Number.isFinite(Date.parse(playedAt))||Date.parse(playedAt)>Date.now()+60000)throw Error('播放进度数据无效');const remote=pageData(await api('/v1/playback-progress/list',{eids:[eid]})).items.find(x=>x.eid===eid);if(remote&&Date.parse(remote.playedAt)>Date.parse(playedAt))return {status:'conflict'};await api('/v1/playback-progress/update',{data:[{eid,pid,progress:Math.floor(progress),playedAt}]});return {status:'ok'};};const next=progressQueue.then(work,work);progressQueue=next.catch(()=>{});return next;});
+ipcMain.handle('progress-update',(_,entry)=>{const work=async()=>{const {eid,pid,progress,playedAt,recordHistory}=entry||{};if(!/^[a-f0-9]{24}$/i.test(eid||'')||!/^[a-f0-9]{24}$/i.test(pid||'')||!Number.isFinite(progress)||progress<0||progress>864000||!Number.isFinite(Date.parse(playedAt))||Date.parse(playedAt)>Date.now()+60000||typeof recordHistory!=='boolean')throw Error('播放进度数据无效');return syncProgress(api,{eid,pid,progress,playedAt},recordHistory);};const next=progressQueue.then(work,work);progressQueue=next.catch(()=>{});return next;});

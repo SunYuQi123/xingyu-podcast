@@ -1,12 +1,13 @@
 {
   "name": "xingyu-podcast",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "private": true,
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "check": "node --check main.js && node --check preload.js && node --check renderer.js",
-    "dist": "electron-builder --win nsis --x64 --publish never"
+    "check": "node --check main.js && node --check preload.js && node --check renderer.js && node --check sync-core.js",
+    "dist": "electron-builder --win nsis --x64 --publish never",
+    "test": "node --test tests/*.test.js"
   },
   "devDependencies": {
     "electron": "^45.2.1",
@@ -33,7 +34,8 @@
       "style.css",
       "LICENSE",
       "THIRD_PARTY_NOTICES.md",
-      "package.json"
+      "package.json",
+      "sync-core.js"
     ],
     "win": {
       "target": [
